@@ -27,10 +27,8 @@ class Postalcode extends MasterController
         $search         = $this->input->get('search');
         $key            = $this->key . "_" . $cur_page;
         $condition      = '';
-
+        
         if ($type != "" && $search != "") {
-            $total_data = $this->postalcode->get_total_postalcode("WHERE $type like '%" . $search . "%'");
-
             $condition = [
                 'match' => [
                     $type => $search
@@ -38,8 +36,6 @@ class Postalcode extends MasterController
             ];
 
             $key    = $key . "_" . $type . "_" . preg_replace('/[ ,]+/', '_', trim($search));
-        } else {
-            $total_data = $this->postalcode->get_total_postalcode();
         }
 
         $data                   = array();
@@ -47,7 +43,8 @@ class Postalcode extends MasterController
         $data['title']          = "View Postalcode";
 
         // Lets try to get the key
-        $results = $this->memcached_library->get($key);
+        $results    = $this->memcached_library->get($key);
+        $total_data = $this->memcached_library->get('total_'.$key);
 
         // If the key does not exist it could mean the key was never set or expired
         if (!$results) {
@@ -64,9 +61,11 @@ class Postalcode extends MasterController
             $sort       = $this->sort;
             $skip       = ($cur_page - 1) * $this->limit;
             $results    = $this->elasticsearch->find("postalcode", $condition, $source, $sort, $skip);
+            $total_data = $results['total_row'];
 
             // Lets store the results
             $this->memcached_library->set($key, $results);
+            $this->memcached_library->set('total_'.$key, $total_data);
         }
 
         $total_page               = ($total_data > 0) ? ceil($total_data / $this->limit) : 0;
@@ -293,7 +292,7 @@ class Postalcode extends MasterController
             ]
         ];
 
-        // $condition = '';
+        $condition = '';
 
         $source = array('id', 'postalcode_id', 'id_kecamatan', 'alias_kecamatan', 'kelurahan', 'alias_kelurahan', 'kodepos', 'lat', 'lon', 'shipper_area_id');
 
